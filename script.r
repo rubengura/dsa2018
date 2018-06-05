@@ -1,3 +1,5 @@
+### LIBRERÍAS ###
+
 library(tidyverse)
 library(broom)
 library(rbokeh)
@@ -6,7 +8,8 @@ library(rebus)
 library(stringi)
 library(Rcmdr)
 
-# Análisis Exploratorio de los Datos
+### EDA ###
+
 alz <- read.csv("meg_mci.csv", sep = ",")
 
 View(alz[,1:20])
@@ -15,7 +18,10 @@ str(alz[,1:20])
 
 tail(colnames(alz))
 
-# Extraemos en un vector los diferentes tipos de estadísticos aplicados 
+# Extraemos en un vector los diferentes tipos de estadísticos aplicados. Todos los nombres de las variables
+# siguen la estructura "sync_X_X.Y" donde X representa el número de los sensores involucrados e Y el estadístico
+# estudiado. Si separamos cada nombre por el ".", guardamos toda la información en un vector y se eliminan los
+# valores repetidos se obtendrán los 5 estadísticos utilizados.
 filtro <- sapply(colnames(alz)[3:length(colnames(alz))], 
                  function(x) strsplit(x, "[.]")[[1]][2],
                  USE.NAMES = F)
@@ -25,7 +31,7 @@ estadisticos <- unique(filtro)
 ### MANIPULACIÓN DE TEXTO ###
 
 # Creamos una tabla para cada estadístico que relacione cada par de sensores con los estadísticos obtenidos
-# ind_media es un vector que indica que columnas hacen referencia a la media
+# ind_X es un vector que indica qué columnas hacen referencia a un estadístico determinado.
 ind_media   <- str_detect(colnames(alz), "mean")
 ind_std     <- str_detect(colnames(alz), "std")
 ind_mediana <- str_detect(colnames(alz), "median")
@@ -37,12 +43,14 @@ aux_colnames <- str_replace_all(colnames(alz),
                                 "sync_", 
                                 replacement = "")
 
-# En las columnas relativas a las medias de sincronización de sensores, eliminamos la parte final
+# En las columnas relativas a las medias de sincronización de sensores, eliminamos todo caracter que aparezca
+# después del "."
 aux_media <- str_replace(aux_colnames[ind_media],
                          DOT %R% "mean",
                          "")
 
-# Extraemos el valor de p-value de la prueba t-test aplicada entre todas las medias por cada grupo
+# Aplicamos la prueba t a todas las medias en función del grupo (control o MCI) y extraemos el valor de p-value
+# en el vector "resultados_ttest"
 resultados_ttest <- c()
 
 for(i in which(ind_media == T)){
@@ -81,15 +89,20 @@ tabla_p.value <- cbind(tabla, resultados_ttest)
 tabla_p.value            <- as.data.frame(tabla_p.value)
 tabla_p.value            <- as.data.frame(apply(tabla_p.value, 2, as.numeric))
 tabla_p.value$sign       <- as.factor(ifelse(tabla_p.value$resultados_ttest < 0.05, 1, 0))
-tabla_p.value$ttest_mod  <- ifelse(tabla_p.value$resultados_ttest > 0.05, 0.05, tabla_p.value$resultados_ttest)
+tabla_p.value$ttest_mod  <- ifelse(tabla_p.value$resultados_ttest > 0.05, 
+                                   0.05, 
+                                   tabla_p.value$resultados_ttest)
 tabla_p.value            <- cbind(tabla_p.value, resultados_levene)
-tabla_p.value$levene_mod <- ifelse(tabla_p.value$resultados_levene > 0.05, 0.05, tabla_p.value$resultados_levene) 
+tabla_p.value$levene_mod <- ifelse(tabla_p.value$resultados_levene > 0.05, 
+                                   0.05, 
+                                   tabla_p.value$resultados_levene) 
 
 
 # sync_mean <- matrix(data = nrow = 102, ncol = 102)
 # 
 # sync_p.value <- matrix(resultados_ttest, nrow = 102, ncol = 102)
 
+# Esta tabla no la he utilizado aún
 tabla_p.value_1 <- matrix(nrow = 102, ncol = 102)
 
 for(i in 1:102){
@@ -106,6 +119,8 @@ for(i in 1:102){
 }
 
 tabla_p.value_1 <- as.data.frame(tabla_p.value_1)
+
+### VISUALIZACIÓN ### 
 
 ggplot(tabla_p.value, aes(x = V2, y = V1, fill = sign)) +  
   geom_tile(aes(fill = sign), colour = "grey")
